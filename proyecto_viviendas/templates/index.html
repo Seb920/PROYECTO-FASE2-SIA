@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Predicción de Precios de Viviendas</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0f1e;
+    --surface: #111827;
+    --card: #1a2235;
+    --border: #1e2d45;
+    --accent: #00e5ff;
+    --accent2: #7c3aed;
+    --green: #10b981;
+    --yellow: #f59e0b;
+    --red: #ef4444;
+    --text: #e2e8f0;
+    --muted: #64748b;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    background-image: radial-gradient(ellipse at 20% 20%, rgba(0,229,255,0.04) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 80%, rgba(124,58,237,0.05) 0%, transparent 60%);
+  }
+
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 28px 48px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: rgba(17,24,39,0.8);
+    backdrop-filter: blur(10px);
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .house-icon {
+    width: 42px; height: 42px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px;
+  }
+
+  header h1 {
+    font-size: 1.4rem;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+    color: var(--text);
+  }
+
+  header h1 span { color: var(--accent); }
+
+  .badge {
+    margin-left: auto;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 10px;
+    border-radius: 20px;
+    opacity: 0.7;
+  }
+
+  main { max-width: 960px; margin: 0 auto; padding: 48px 24px; }
+
+  .hero {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+
+  .hero .tag {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    display: block;
+  }
+
+  .hero h2 {
+    font-size: 2.8rem;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1px;
+    margin-bottom: 14px;
+  }
+
+  .hero h2 span {
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .hero p {
+    color: var(--muted);
+    font-size: 1rem;
+    max-width: 520px;
+    margin: 0 auto;
+    line-height: 1.7;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.68rem;
+    color: var(--muted);
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    margin-bottom: 20px;
+    padding-left: 2px;
+  }
+
+  .algorithms-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+
+  .algo-btn {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px 24px;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .algo-btn::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+
+  .algo-btn:hover { border-color: var(--accent); transform: translateY(-2px); }
+  .algo-btn:hover::before { opacity: 0.05; }
+  .algo-btn.active { border-color: var(--accent); background: rgba(0,229,255,0.06); }
+
+  .algo-btn .algo-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    color: var(--accent);
+    opacity: 0.7;
+    margin-bottom: 10px;
+    display: block;
+  }
+
+  .algo-btn .algo-name {
+    font-size: 1.05rem;
+    font-weight: 700;
+    margin-bottom: 6px;
+    color: var(--text);
+    position: relative;
+  }
+
+  .algo-btn .algo-desc {
+    font-size: 0.8rem;
+    color: var(--muted);
+    line-height: 1.5;
+    position: relative;
+  }
+
+  .algo-btn .algo-tag {
+    position: absolute;
+    top: 20px; right: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.6rem;
+    padding: 3px 8px;
+    border-radius: 8px;
+    background: rgba(0,229,255,0.1);
+    color: var(--accent);
+    border: 1px solid rgba(0,229,255,0.2);
+  }
+
+  .stats-btn {
+    width: 100%;
+    background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(0,229,255,0.1));
+    border: 1px solid var(--accent2);
+    border-radius: 16px;
+    padding: 20px;
+    cursor: pointer;
+    font-family: 'Syne', sans-serif;
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text);
+    transition: all 0.25s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-bottom: 40px;
+  }
+
+  .stats-btn:hover {
+    background: linear-gradient(135deg, rgba(124,58,237,0.25), rgba(0,229,255,0.15));
+    transform: translateY(-2px);
+  }
+
+  .result-panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 36px;
+    display: none;
+    animation: fadeUp 0.4s ease;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .result-panel.visible { display: block; }
+
+  .result-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 32px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .result-header h3 {
+    font-size: 1.1rem;
+    font-weight: 700;
+  }
+
+  .result-header .algo-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+    color: var(--accent);
+    background: rgba(0,229,255,0.1);
+    border: 1px solid rgba(0,229,255,0.2);
+    padding: 5px 12px;
+    border-radius: 20px;
+  }
+
+  .metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-bottom: 32px;
+  }
+
+  .metric-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 20px 16px;
+    text-align: center;
+  }
+
+  .metric-card .metric-val {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.8rem;
+    font-weight: 700;
+    margin-bottom: 4px;
+    line-height: 1;
+  }
+
+  .metric-card .metric-label {
+    font-size: 0.72rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  .metric-card.good .metric-val { color: var(--green); }
+  .metric-card.warn .metric-val { color: var(--yellow); }
+  .metric-card.info .metric-val { color: var(--accent); }
+
+  .chart-container {
+    margin-top: 28px;
+    border-radius: 16px;
+    overflow: hidden;
+    border: 1px solid var(--border);
+    background: var(--surface);
+    padding: 8px;
+  }
+
+  .chart-container img {
+    width: 100%;
+    border-radius: 12px;
+    display: block;
+  }
+
+  .tree-chart-container {
+    margin-top: 28px;
+    border-radius: 16px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    background: white;
+    padding: 16px;
+  }
+
+  .tree-chart-container img {
+    width: 100%;
+    border-radius: 8px;
+    display: block;
+  }
+
+  .comp-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.88rem;
+  }
+
+  .comp-table th {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.65rem;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--muted);
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .comp-table td {
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(30,45,69,0.5);
+    color: var(--text);
+  }
+
+  .comp-table tr:last-child td { border-bottom: none; }
+  .comp-table tr:hover td { background: rgba(0,229,255,0.03); }
+
+  .pill {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-family: 'Space Mono', monospace;
+    font-size: 0.72rem;
+  }
+
+  .pill.high { background: rgba(16,185,129,0.15); color: var(--green); }
+  .pill.med { background: rgba(245,158,11,0.15); color: var(--yellow); }
+  .pill.low { background: rgba(239,68,68,0.1); color: var(--red); }
+
+  .loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 40px;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+
+  .spinner {
+    width: 20px; height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="house-icon">🏠</div>
+  <h1>Predicción de <span>Precios</span> de Viviendas</h1>
+  <span class="badge">Regresión · ML</span>
+</header>
+
+<main>
+  <div class="hero">
+    <span class="tag">Machine Learning · Regresión Supervisada</span>
+    <h2>Predicción de <span>Precios de Viviendas</span></h2>
+    <p>Sistema de regresión para estimar el precio de viviendas utilizando algoritmos de Machine Learning.</p>
+  </div>
+
+  <div class="section-label">Seleccionar Algoritmo</div>
+
+  <div class="algorithms-grid">
+    <button class="algo-btn" onclick="ejecutar('regresion_lineal', this)">
+      <span class="algo-num">Regresión Lineal</span>
+      <span class="algo-tag">Linear</span>
+      <div class="algo-name">Regresión Lineal</div>
+      <div class="algo-desc">Modelo lineal que predice el precio basado en la combinación ponderada de características.</div>
+    </button>
+
+    <button class="algo-btn" onclick="ejecutar('knn', this)">
+      <span class="algo-num">K-Nearest Neighbors</span>
+      <span class="algo-tag">KNN</span>
+      <div class="algo-name">K-Nearest Neighbors</div>
+      <div class="algo-desc">Predice el precio promediando los k vecinos más similares en el espacio de características.</div>
+    </button>
+
+    <button class="algo-btn" onclick="ejecutar('svm', this)">
+      <span class="algo-num">Support Vector Machine</span>
+      <span class="algo-tag">SVM</span>
+      <div class="algo-name">SVM Regressor</div>
+      <div class="algo-desc">Encuentra el hiperplano que mejor se ajusta a los datos con margen de error.</div>
+    </button>
+
+    <button class="algo-btn" onclick="ejecutar('arbol', this)">
+      <span class="algo-num">Árbol de Decisión</span>
+      <span class="algo-tag">Tree</span>
+      <div class="algo-name">Árbol de Decisión</div>
+      <div class="algo-desc">Genera reglas jerárquicas basadas en umbrales de características.</div>
+    </button>
+  </div>
+
+  <button class="stats-btn" onclick="ejecutarComparacion()">
+    📊 &nbsp; Ver Comparación de Algoritmos
+  </button>
+
+  <div class="result-panel" id="result-panel">
+    <div id="result-content"></div>
+  </div>
+</main>
+
+<script>
+let activeBtn = null;
+
+function ejecutar(algoritmo, btn) {
+  if (activeBtn) activeBtn.classList.remove('active');
+  btn.classList.add('active');
+  activeBtn = btn;
+
+  const panel = document.getElementById('result-panel');
+  const content = document.getElementById('result-content');
+  panel.classList.add('visible');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div> Ejecutando algoritmo...</div>';
+
+  const nombres = {
+    regresion_lineal: 'Regresión Lineal',
+    knn: 'KNN',
+    svm: 'SVM',
+    arbol: 'Árbol de Decisión'
+  };
+
+  fetch('/api/' + algoritmo)
+    .then(r => r.json())
+    .then(data => {
+      content.innerHTML = buildResult(data, nombres[algoritmo]);
+    })
+    .catch(err => {
+      content.innerHTML = '<div class="loading" style="color: #ef4444;">❌ Error al cargar los datos. Asegúrate de que el servidor esté corriendo.</div>';
+    });
+}
+
+function ejecutarComparacion() {
+  if (activeBtn) activeBtn.classList.remove('active');
+  activeBtn = null;
+
+  const panel = document.getElementById('result-panel');
+  const content = document.getElementById('result-content');
+  panel.classList.add('visible');
+  content.innerHTML = '<div class="loading"><div class="spinner"></div> Comparando todos los algoritmos...</div>';
+
+  fetch('/api/comparacion')
+    .then(r => r.json())
+    .then(data => {
+      content.innerHTML = buildComparacion(data);
+    })
+    .catch(err => {
+      content.innerHTML = '<div class="loading" style="color: #ef4444;">❌ Error al cargar la comparación.</div>';
+    });
+}
+
+function buildResult(d, nombre) {
+  const isTree = d.model_name === "Árbol de Decisión";
+  const chartContainerClass = isTree ? 'tree-chart-container' : 'chart-container';
+  
+  // Formatear números
+  const formatMoney = (val) => {
+    return new Intl.NumberFormat('es-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
+  };
+  
+  return `
+    <div class="result-header">
+      <h3>Resultados del Análisis</h3>
+      <span class="algo-label">${d.model_name || nombre}</span>
+    </div>
+
+    <div class="metrics-grid">
+      <div class="metric-card good">
+        <div class="metric-val">${d.r2}%</div>
+        <div class="metric-label">R² Score</div>
+      </div>
+      <div class="metric-card warn">
+        <div class="metric-val">${formatMoney(d.rmse)}</div>
+        <div class="metric-label">RMSE</div>
+      </div>
+      <div class="metric-card info">
+        <div class="metric-val">${formatMoney(d.mae)}</div>
+        <div class="metric-label">MAE</div>
+      </div>
+    </div>
+
+    <div class="chart-container">
+      <h4 style="font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px;">📊 Métricas del Modelo</h4>
+      <img src="data:image/png;base64,${d.metrics_chart}" alt="Métricas del modelo">
+    </div>
+
+    <div class="chart-container">
+      <h4 style="font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px;">📈 Predicciones vs Reales</h4>
+      <img src="data:image/png;base64,${d.prediction_chart}" alt="Predicciones vs Reales">
+    </div>
+
+    <div class="${chartContainerClass}">
+      <h4 style="font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 1px; color: var(--muted); margin-bottom: 12px;">📉 Diagrama Característico - ${d.model_name || nombre}</h4>
+      <img src="data:image/png;base64,${d.regression_chart}" alt="Diagrama característico del algoritmo">
+    </div>
+  `;
+}
+
+function buildComparacion(data) {
+  const rows = data.map(d => {
+    const r2 = parseFloat(d.r2);
+    const cls = r2 >= 80 ? 'high' : r2 >= 60 ? 'med' : 'low';
+    const formatMoney = (val) => {
+      return new Intl.NumberFormat('es-US', { style: 'currency', currency: 'USD', minimumFractionDigits: 0 }).format(val);
+    };
+    return `
+      <tr>
+        <td><strong>${d.nombre}</strong></td>
+        <td><span class="pill ${cls}">${d.r2}%</span></td>
+        <td>${formatMoney(d.rmse)}</span></td>
+        <td>${formatMoney(d.mae)}</span></td>
+      </tr>
+    `;
+  }).join('');
+
+  return `
+    <div class="result-header">
+      <h3>Comparación de Algoritmos</h3>
+      <span class="algo-label">Regresión - Precio Viviendas</span>
+    </div>
+    <table class="comp-table">
+      <thead>
+        <tr>
+          <th>Algoritmo</th>
+          <th>R² Score</th>
+          <th>RMSE</th>
+          <th>MAE</th>
+        </tr>
+      </thead>
+      <tbody>${rows}</tbody>
+    </table>
+  `;
+}
+</script>
+</body>
+</html>
