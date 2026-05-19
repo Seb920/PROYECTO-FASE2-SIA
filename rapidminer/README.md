@@ -1,50 +1,9 @@
-# Detección de Varicela — ML con Flask
+# IMPLEMENTACION DE RAPIDMINER
 
-## Instalación
+Primero poner el cvs en la carpeta de data luego pegar ese archivo proceso_viviendas_final.rmp en la carpeta procesos y al ejecutarse pedira poner la direccion del cvs asi que cambiamos a la ruta donde esta el cvs
 
-```bash
-pip install -r requirements.txt
-```
+<img width="970" height="906" alt="image" src="https://github.com/user-attachments/assets/1b47d846-5d91-4f46-814b-16745ec8bbc0" />
 
-O instalar manualmente:
+luego se da play y en result podremos ver los resultados de cada algoritmo (mas detallado en el informe)
 
-```bash
-pip install flask scikit-learn pandas numpy
-```
-
-## Ejecutar
-
-```bash
-python app.py
-```
-
-Luego abrir en el navegador: http://127.0.0.1:5000
-
-## Estructura
-
-```
-varicela_app/
-├── app.py              ← Backend Flask + modelos ML
-├── data.csv            ← Dataset CDC NNDSS 2018
-├── requirements.txt    ← Librerías necesarias
-└── templates/
-    └── index.html      ← Interfaz web
-```
-
-## Algoritmos implementados
-
-| Código   | Algoritmo              | Ruta API         |
-|----------|------------------------|------------------|
-| F2-SI-01 | Regresión Logística    | /api/regresion   |
-| F2-SI-02 | K-Nearest Neighbors    | /api/knn         |
-| F2-SI-03 | Support Vector Machine | /api/svm         |
-| F2-SI-04 | Árbol de Decisión      | /api/arbol       |
-| —        | Comparación general    | /api/comparacion |
-
-## Dataset
-
-NNDSS - Table II. Tetanus to Varicella (2018)  
-Fuente: Centers for Disease Control and Prevention (CDC)  
-Variables usadas: casos semanales, mediana 52 semanas, máximo 52 semanas, acumulado 2017/2018.
-
-El target (variable a predecir) es si una semana representa un **brote** (casos por encima de la mediana histórica) o estado **normal**.
+<img width="1919" height="1028" alt="image" src="https://github.com/user-attachments/assets/aafd7d7d-d360-466b-af81-b1989de7727f" />
