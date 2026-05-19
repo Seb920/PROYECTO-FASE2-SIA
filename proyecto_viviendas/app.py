@@ -1,4 +1,4 @@
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 import pandas as pd
 import numpy as np
 from sklearn.linear_model import LinearRegression, Ridge, Lasso
@@ -19,8 +19,38 @@ warnings.filterwarnings('ignore')
 
 app = Flask(__name__)
 
+# Cache de modelos entrenados (se inicializa al primer uso)
+_models_cache = {}
+_scaler_cache = None
+_feature_cols_cache = None
+_label_encoders_cache = {}
+
+CATEGORICAL_COLS = ['calefaccion', 'consumo_calefacion', 'desague',
+                    'vistas_lago', 'nueva_construccion', 'aire_acondicionado']
+
+VALID_CATEGORICALS = {
+    'calefaccion': ['electric', 'hot air', 'hot water/steam'],
+    'consumo_calefacion': ['electric', 'gas', 'oil'],
+    'desague': ['none', 'public/commercial', 'septic'],
+    'vistas_lago': ['No', 'Yes'],
+    'nueva_construccion': ['No', 'Yes'],
+    'aire_acondicionado': ['No', 'Yes'],
+}
+
+NUMERIC_RULES = {
+    'metros_totales':   (0,   15,     "Metros totales debe estar entre 0 y 15"),
+    'antiguedad':       (0,   250,    "Antigüedad debe estar entre 0 y 250 años"),
+    'precio_terreno':   (100, 500000, "Precio del terreno debe estar entre $100 y $500,000"),
+    'metros_habitables':(300, 6000,   "Metros habitables debe estar entre 300 y 6,000"),
+    'universitarios':   (10,  100,    "Porcentaje de universitarios debe estar entre 10 y 100"),
+    'dormitorios':      (1,   10,     "Dormitorios debe estar entre 1 y 10"),
+    'chimenea':         (0,   5,      "Chimeneas debe estar entre 0 y 5"),
+    'banyos':           (0,   6,      "Baños debe estar entre 0 y 6"),
+    'habitaciones':     (2,   15,     "Habitaciones debe estar entre 2 y 15"),
+}
+
 def load_data():
-    """Cargar y preprocesar datos de viviendas"""
+    """Cargar y preprocesar datos de viviendas."""
     df = pd.read_csv("boston_housing_esp.csv")
     
     # Limpiar nombres de columnas
@@ -49,6 +79,44 @@ def load_data():
     print(f"Rango de precios: ${y.min():,.0f} - ${y.max():,.0f}")
     
     return X, y, df, feature_cols
+
+def get_trained_models():
+    """Entrena y cachea los 4 modelos + scaler + encoders una sola vez."""
+    global _models_cache, _scaler_cache, _feature_cols_cache, _label_encoders_cache
+    if _models_cache:
+        return _models_cache, _scaler_cache, _feature_cols_cache, _label_encoders_cache
+
+    # Guardar encoders para reutilizar en predicción
+    df_raw = pd.read_csv("boston_housing_esp.csv")
+    df_raw.columns = df_raw.columns.str.strip()
+    for col in CATEGORICAL_COLS:
+        le = LabelEncoder()
+        le.fit(df_raw[col].astype(str))
+        _label_encoders_cache[col] = le
+
+    X, y, _, feature_cols = load_data()
+    X_train, _, y_train, _ = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    scaler = StandardScaler()
+    X_train_s = scaler.fit_transform(X_train)
+
+    modelos = {
+        "Regresión Lineal": LinearRegression(),
+        "KNN (k=5)": KNeighborsRegressor(n_neighbors=5),
+        "SVM (RBF)": SVR(kernel='rbf', C=100, gamma='auto'),
+        "Árbol de Decisión": DecisionTreeRegressor(max_depth=10, random_state=42),
+    }
+    for nombre, modelo in modelos.items():
+        if nombre == "Árbol de Decisión":
+            modelo.fit(X_train, y_train)
+        else:
+            modelo.fit(X_train_s, y_train)
+
+    _models_cache = modelos
+    _scaler_cache = scaler
+    _feature_cols_cache = feature_cols
+    return _models_cache, _scaler_cache, _feature_cols_cache, _label_encoders_cache
+
 
 def get_regression_metrics(model, X_train, X_test, y_train, y_test, needs_scale=False):
     """Entrena modelo de regresión y devuelve métricas"""
@@ -382,6 +450,84 @@ def comparacion():
     except Exception as e:
         print(f"Error: {e}")
         return jsonify({"error": str(e)}), 500
+
+@app.route("/api/predecir", methods=["POST"])
+def predecir():
+    try:
+        data = request.get_json(force=True)
+        if not data:
+            return jsonify({"error": "No se recibieron datos JSON"}), 400
+
+        # --- Validación de campos requeridos ---
+        required = list(NUMERIC_RULES.keys()) + list(VALID_CATEGORICALS.keys())
+        missing = [f for f in required if f not in data]
+        if missing:
+            return jsonify({"error": f"Campos faltantes: {', '.join(missing)}"}), 400
+
+        errors = []
+
+        # Validación numérica
+        numeric_vals = {}
+        for field, (min_v, max_v, msg) in NUMERIC_RULES.items():
+            try:
+                val = float(data[field])
+                if val < min_v or val > max_v:
+                    errors.append(msg)
+                else:
+                    numeric_vals[field] = val
+            except (ValueError, TypeError):
+                errors.append(f"'{field}' debe ser un número válido")
+
+        # Validación categórica
+        for field, valid_vals in VALID_CATEGORICALS.items():
+            if str(data.get(field, "")) not in valid_vals:
+                errors.append(f"'{field}' debe ser uno de: {', '.join(valid_vals)}")
+
+        if errors:
+            return jsonify({"error": "; ".join(errors)}), 422
+
+        # --- Preparar vector de entrada ---
+        models, scaler, feature_cols, encoders = get_trained_models()
+
+        row = {}
+        for col in feature_cols:
+            if col in CATEGORICAL_COLS:
+                row[col] = float(encoders[col].transform([str(data[col])])[0])
+            else:
+                row[col] = numeric_vals.get(col, 0.0)
+
+        X_input = np.array([[row[col] for col in feature_cols]])
+        X_input = np.nan_to_num(X_input)
+        X_input_s = scaler.transform(X_input)
+
+        # --- Predicciones ---
+        preds = {}
+        for nombre, modelo in models.items():
+            raw = modelo.predict(X_input if nombre == "Árbol de Decisión" else X_input_s)[0]
+            preds[nombre] = round(max(0.0, float(raw)), 2)
+
+        promedio = round(float(np.mean(list(preds.values()))), 2)
+        return jsonify({"predicciones": preds, "promedio": promedio})
+
+    except Exception as e:
+        print(f"Error en /api/predecir: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
+@app.route("/api/dataset_info")
+def dataset_info():
+    try:
+        _, y, df, feature_cols = load_data()
+        return jsonify({
+            "registros": int(len(df)),
+            "caracteristicas": int(len(feature_cols)),
+            "precio_min": int(y.min()),
+            "precio_max": int(y.max()),
+            "precio_promedio": int(y.mean()),
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 
 if __name__ == "__main__":
     app.run(debug=True)
